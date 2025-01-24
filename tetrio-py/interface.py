@@ -59,6 +59,7 @@ class tetrio_bot():
     def play_move():
         pass
     def init():
+        pass
 
 # main
 tetriobot = tetrio_bot()
