@@ -16,7 +16,7 @@ pyautogui.click(clicks=1, interval=0.5, button='left')
 
 pyautogui.moveTo(1480, 400, duration = 1)
 pyautogui.click(clicks=1, interval=0.5, button='left') 
-
+#12312132123132132
 
 
 x,y = pyautogui.position()
