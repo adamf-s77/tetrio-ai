@@ -24,7 +24,7 @@ while(x > 10 or y > 10):
     x,y = pyautogui.position()
     time.sleep(1)
 
-
+# 需要用到的函式
 
 def piece_colors():
     pass
