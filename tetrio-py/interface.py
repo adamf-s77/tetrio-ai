@@ -31,5 +31,4 @@ def piece_colors():
 def piece_index():
     pass
 def orientation_columns():
-    pass11222222
-    lllllll
+    pass
