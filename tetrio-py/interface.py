@@ -29,7 +29,13 @@ while(x > 10 or y > 10):
 
 
 def piece_colors():
-    pass
+    'T': '#b151a7',  # 紫色
+    'L': '#ba6d3e',  # 橙色
+    'O': '#b9a13c',  # 黃色
+    'J': '#7969c6',  # 藍色
+    'I': '#3db388',  # 深綠色
+    'Z': '#bb3e44',  # 紅色
+    'S': '#82ac3b'   # 綠色
 def piece_index():
     pass
 def orientation_columns():
