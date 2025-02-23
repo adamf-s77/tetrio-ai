@@ -2,12 +2,12 @@ from selenium import webdriver # 叫出同一目錄的selenium和WebDriver
 import pyautogui
 import time
 
-#找滑鼠位置
-# x,y = pyautogui.position()
-# while(x > 10 or y > 10):
-#     print(pyautogui.position())
-#     x,y = pyautogui.position()
-#     time.sleep(1)
+def find_coordinate():
+    x,y = pyautogui.position()
+    while(x > 10 or y > 10):
+        print(pyautogui.position())
+        x,y = pyautogui.position()
+        time.sleep(1)
 
 
 URL = "https://tetr.io/"
@@ -18,18 +18,20 @@ NEXT_PIECE_POSITION_Y =0
 NEXT_PIECE_WIDTH =0
 NEXT_PIECE_HEIGHT =0
 NEXT_PIECE_COUNT =0
-
+12
 JOIN_X = 950
 JOIN_Y = 670
 
 SOLO_X = 920
-SOLO_Y = 550
+SOLO_Y = 400
 
 BLITZ_X = 880
 BLITZ_Y = 420
 
 START_X = 1580
 START_Y = 420
+
+1240 450
 
 piece_colors = {
     'T': '#b151a7',
@@ -180,8 +182,7 @@ class tetrio_bot():
         driver.maximize_window()
         driver.get(URL)
         self.start_game()
-        while(1):
-            self.play_move()
+        find_coordinate()
 
 # main
 tetriobot = tetrio_bot()
