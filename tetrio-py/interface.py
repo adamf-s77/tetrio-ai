@@ -3,7 +3,6 @@ import pyautogui
 import time
 from PIL import Image, ImageGrab
 import math
-import testmcts
 
 def find_coordinate():
     x,y = pyautogui.position()
@@ -93,6 +92,7 @@ class tetrio_bot():
         # pyautogui.click(clicks=1, interval=0.5, button='left') 
         find_coordinate()
         self.current_pieces = self.get_next_pieces()
+        self.get_next_piece()
         time.sleep(1.8)
 
     
@@ -242,6 +242,8 @@ class tetrio_bot():
 
     def move_to_column(self):
         pass
+    def get_next_piece(self):
+        pass
     def play_move(self):
         # const {
         #     orientationIndex,
@@ -274,5 +276,3 @@ class tetrio_bot():
 # main
 tetriobot = tetrio_bot()
 tetriobot.init()
-
-move = func(next_pieces)
