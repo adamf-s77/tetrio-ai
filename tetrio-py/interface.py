@@ -77,9 +77,12 @@ def get_luminance(r, g, b):
 
 class tetrio_bot():
     def __init__(self):
-        self.current_column = 4 #5 if 0
+        self.current_column = 4 
+        self.currentPiece = None
+        self.currentPieces = [] 
         self.eltetris = 'new ElTetris(10,20)' #後面要改成自己的ai
         self.move = 0
+        
 
     def start_game(self):
         # pyautogui.moveTo(JOIN_X, JOIN_Y, duration = 1) 
@@ -223,47 +226,77 @@ class tetrio_bot():
         # 打印結果
         print("Detected pieces:", pieces)
         return pieces
+    
+    def turnLeft(self):
+        print("turn left")
+        pyautogui.press('z')
+    
+    def turnRight(self):
+        print("turn right")
+        pyautogui.press('x')
+    
+    def moveLeft(self):
+        print("move left")
+        pyautogui.press('left')
+    
+    def moveRight(self):
+        print("move right")
+        pyautogui.press('right')
+    
+    def dropPiece(self):
+        print("drop piece")
+        pyautogui.press('space')
+    
+    def getNextPiece(self):
+        # 從 currentPieces 取出下一個方塊，若空則重新抓取
+        if self.currentPieces:
+            self.currentPiece = self.currentPieces.pop(0)
+        else:
+            self.currentPieces = self.getNextPieces()  # 此函數需自行定義來抓取下一批方塊
+            self.getNextPiece()
+        # 根據方塊類型設定初始列：若為 'O' 則從 5 開始，其它為 4
+        self.currentColumn = 5 if self.currentPiece == 'O' else 4
+    
+    def playMove(self):
+        """
+        假設 self.eltetris.pickMove 回傳的字典格式為：
+            { 'rotation': <整數>, 'column': <目標列> }
+        其中 rotation 為旋轉次數：正數代表需要向右轉（按 x 鍵），負數代表向左轉（按 z 鍵）。
+        """
+        move = self.eltetris.pickMove(PIECE_INDEXES[self.currentPiece])
+        rotation = move['rotation']   # 旋轉次數
+        column = move['column']       # 目標列
+
+        # 更新內部棋盤狀態
+        self.eltetris.playMove(self.eltetris.board, rotation, column)
+        print("move #", self.moves, "played", self.currentPiece, "at column", column)
+        ElTetris.drawBoard(self.eltetris.board)
+
+        # 根據 rotation 值來執行旋轉操作
+        if rotation < 0:
+            for _ in range(abs(rotation)):
+                self.turnLeft()
+        elif rotation > 0:
+            for _ in range(rotation):
+                self.turnRight()
+        
+        # 移動至目標列
+        delta = column - self.currentColumn
+        if delta < 0:
+            for _ in range(abs(delta)):
+                self.moveLeft()
+        elif delta > 0:
+            for _ in range(delta):
+                self.moveRight()
+        
+        # 取得下一個方塊並掉落目前方塊
+        self.getNextPiece()
+        self.dropPiece()
+        self.moves += 1
         
     
-    def move_left(self):
-        pyautogui.press('left')
-
-    def move_right(self):
-        pyautogui.press('right')
-
-    def drop_piece(self):
-        pyautogui.press('space')
-
-    def change_to_orientation(self,orientation):
-        for i in range(orientation):
-            pyautogui.press('up')
-        self.current_column = orientation_columns[self.current_piece][orientation]
-
-
-    def move_to_column(self):
-        pass
-    def get_next_piece(self):
-        pass
-    def play_move(self):
-        # const {
-        #     orientationIndex,
-        #     orientation,
-        #     column
-        # } = this.eltetris.pickMove(PIECE_INDEXES[this.currentPiece]);
-
-        # this.eltetris.playMove(this.eltetris.board, orientation, column);
-
-        # console.log(
-        #     'move #',
-        #     this.moves,
-        #     'played',
-        #     this.currentPiece,
-        #     'at column',
-        #     column
-        # );
-
-        # ElTetris.drawBoard(this.eltetris.board);
-        pass
+    
+   
     
     def init(self):
         driver = webdriver.Edge()
