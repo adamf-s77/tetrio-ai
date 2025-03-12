@@ -252,7 +252,7 @@ class tetrio_bot():
         if self.currentPieces:
             self.currentPiece = self.currentPieces.pop(0)
         else:
-            self.currentPieces = self.getNextPieces()  # 此函數需自行定義來抓取下一批方塊
+            self.currentPieces = self.get_next_pieces()  # 此函數需自行定義來抓取下一批方塊
             self.getNextPiece()
         # 根據方塊類型設定初始列：若為 'O' 則從 5 開始，其它為 4
         self.currentColumn = 5 if self.currentPiece == 'O' else 4
@@ -268,9 +268,11 @@ class tetrio_bot():
         column = move['column']       # 目標列
 
         # 更新內部棋盤狀態
+        """
         self.eltetris.playMove(self.eltetris.board, rotation, column)
         print("move #", self.moves, "played", self.currentPiece, "at column", column)
         ElTetris.drawBoard(self.eltetris.board)
+        """
 
         # 根據 rotation 值來執行旋轉操作
         if rotation < 0:
