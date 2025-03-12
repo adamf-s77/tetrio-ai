@@ -364,6 +364,18 @@ def monte_carlo_tree_search(node):
     best_next_node = best_child(node, False)
     return best_next_node
 
+class Last_Node:
+    def __init__(self):
+        self.init_state = State([])
+        self.current_node = Node()
+        self.current_node.set_state(self.init_state)
+
+    def get_move(self,next_pieces):
+        self.current_node.get_state().set_next_pieces(next_pieces)
+        self.current_node = monte_carlo_tree_search(self.current_node)
+        self.current_node.get_state().show_board()
+        return self.current_node.get_move()
+
 # def main():
 #     # Create the initialized state and initialized node
 #     init_state = State([1,2,3,4,5])  # 創建初始遊戲狀態
