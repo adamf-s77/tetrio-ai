@@ -16,7 +16,7 @@ URL = "https://tetr.io/"
   
 #下面位置數字還沒改
 NEXT_PIECE_POSITION_X =1240
-NEXT_PIECE_POSITION_Y =370
+NEXT_PIECE_POSITION_Y =365
 NEXT_PIECE_WIDTH =20
 NEXT_PIECE_HEIGHT =96
 NEXT_PIECE_COUNT =5
@@ -93,9 +93,10 @@ class tetrio_bot():
         # pyautogui.click(clicks=1, interval=0.5, button='left') 
         # pyautogui.moveTo(START_X, START_Y, duration = 1)
         # pyautogui.click(clicks=1, interval=0.5, button='left') 
-        find_coordinate()
-        self.current_pieces = self.get_next_pieces()
+        #  find_coordinate()
+        self.current_pieces = self.get_next_pieces( )
         self.getNextPiece()
+        self.playMove1(1,2)
         time.sleep(1.8)
 
     
@@ -295,6 +296,45 @@ class tetrio_bot():
         self.getNextPiece()
         self.dropPiece()
         self.moves += 1
+    def playMove1(self, rotation, column):
+        find_coordinate( )
+        """
+        假設 self.eltetris.pickMove 回傳的字典格式為：
+            { 'rotation': <整數>, 'column': <目標列> }
+        其中 rotation 為旋轉次數：正數代表需要向右轉（按 x 鍵），負數代表向左轉（按 z 鍵）。
+        """
+        '''
+        move = self.eltetris.pickMove(PIECE_INDEXES[self.currentPiece])
+        rotation = move['rotation']   # 旋轉次數
+        column = move['column']       # 目標列
+        '''
+        
+        """
+        self.eltetris.playMove(self.eltetris.board, rotation, column)
+        print("move #", self.moves, "played", self.currentPiece, "at column", column)
+        ElTetris.drawBoard(self.eltetris.board)
+        """
+
+        # 根據 rotation 值來執行旋轉操作
+        if rotation < 0:
+            for _ in range(abs(rotation)):
+                self.turnLeft()
+        elif rotation > 0:
+            for _ in range(rotation):
+                self.turnRight()
+        
+        # 移動至目標列
+        delta = column - self.currentColumn
+        if delta < 0:
+            for _ in range(abs(delta)):
+                self.moveLeft()
+        elif delta > 0:
+            for _ in range(delta):
+                self.moveRight()
+        
+        # 取得下一個方塊並掉落目前方塊
+        self.getNextPiece()
+        self.dropPiece()
         
     
     
@@ -305,7 +345,9 @@ class tetrio_bot():
         driver.set_window_size(1920,1080)
         driver.set_window_position(0,0)
         driver.get(URL)
-        self.start_game()
+        while(1):
+
+            self.start_game()
         find_coordinate()
 
 # main
