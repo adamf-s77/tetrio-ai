@@ -95,7 +95,7 @@ class tetrio_bot():
         # pyautogui.click(clicks=1, interval=0.5, button='left') 
         find_coordinate()
         self.current_pieces = self.get_next_pieces()
-        self.get_next_piece()
+        self.getNextPiece()
         time.sleep(1.8)
 
     
