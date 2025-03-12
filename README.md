@@ -1,4 +1,3 @@
-# tetrio-ai
 ## algorithm.py用法:
 ```py
 import algorithm as mtcs
