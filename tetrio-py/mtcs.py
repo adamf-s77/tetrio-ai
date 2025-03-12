@@ -109,6 +109,7 @@ class State(object):
     
     def set_next_pieces(self,next_pieces):
         self.next_pieces = next_pieces
+        self.now_piece = self.next_pieces[0]
 
     def is_terminal(self):
        return self.now_piece == None
@@ -217,6 +218,9 @@ class Node(object):
         sub_node.set_parent(self)
         self.children.append(sub_node)
 
+    def get_move(self):
+        return self.state.get_cumulative_choices_dir()[-1],self.state.get_cumulative_choices_col()[-1]
+
     def __repr__(self):
         return "Node: {}, Q/N: {}/{}, state: {}".format(
             hash(self), self.quality_value, self.visit_times, self.state
@@ -228,11 +232,15 @@ def tree_policy(node):
     基本策略是先找当前未选择过的子节点，如果是多个则随机选。如果都被选择过就按权衡过
     """
 
+
     # Check if the current node is the leaf node
     while node.get_state().is_terminal() == False:
+
         if node.is_all_expand():
+
             node = best_child(node, True)
         else:
+
             # Return the new sub node
             sub_node = expand(node)
             return sub_node
@@ -297,6 +305,7 @@ def best_child(node, is_exploration):
     # TODO: Use the min float value
     best_score = -sys.maxsize
     best_sub_node = None
+
     # Travel all sub nodes to find the best one
     for sub_node in node.get_children():
         # Ignore exploration for inference
@@ -340,39 +349,20 @@ def monte_carlo_tree_search(node):
     3. Backpropagation（回溯）: 使用 `backup` 将 `reward` 更新到路径上的所有节点。
     4. Exploitation（利用）: 选择 `Q 值` 最大的子节点作为最优决策。
     """
-    computation_budget = 10
 
+    computation_budget = 10
     # Run as much as possible under the computation budget
     for i in range(computation_budget):
         # 1. Find the best node to expand
         expand_node = tree_policy(node)
-
         # 2. Random run to add node and get reward
         reward = default_policy(expand_node)
-
         # 3. Update all passing nodes with reward
         backup(expand_node, reward)
 
     # N. Get the best next node
     best_next_node = best_child(node, False)
     return best_next_node
-
-def get_move(next_pieces):
-    init_state = State(next_pieces)
-    init_node = Node()
-    init_node.set_state(init_state)
-    result_node = monte_carlo_tree_search(init_node)
-    return(result_node.get_state().get_cumulative_choices_dir()[-1],result_node.get_state().get_cumulative_choices_col()[-1])
-
-
-
-# def run_by_random():
-#     init_state = State([1,2,3,4,5])  # 創建初始遊戲狀態
-#     while True:
-#         init_state = init_state.get_next_state_with_random_choice()
-#         init_state.show_board()
-#         init_state.set_next_pieces(np.append(init_state.get_next_pieces(),random.randrange(0,7)))
-#         time.sleep(0.5)
 
 # def main():
 #     # Create the initialized state and initialized node
@@ -383,7 +373,7 @@ def get_move(next_pieces):
 
 #     # Set the rounds to play
 #     i = 0
-#     for i in range(10):  
+#     for i in range(1):  
 #         print("Play round: {}".format(i + 1))
 #         # 執行 MCTS 來選擇下一個最佳節點
 #         current_node = monte_carlo_tree_search(current_node)
@@ -392,8 +382,6 @@ def get_move(next_pieces):
 #         current_node.get_state().set_next_pieces(np.append(current_node.get_state().get_next_pieces(),random.randrange(0,7)))
 #         time.sleep(0.5)
 #         i += 1
-
-
 # main()
 
-#OILJSZT -> 0123456
+# print("==================")
