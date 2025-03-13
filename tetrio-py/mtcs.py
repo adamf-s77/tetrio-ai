@@ -23,8 +23,8 @@ import time
 # I4
 
 PIECE_SHAPE = [
-    [[3,3]],
-    [[15],[1,1,1,1]],
+    [[3,3],[3,3],[3,3],[3,3]],
+    [[15],[1,1,1,1],[15],[1,1,1,1]],
     [[7,1],[1,1,3],[4,7],[3,2,2]],
     [[7,4],[3,1,1],[1,7],[2,2,3]],
     [[6,3],[1,3,2],[6,3],[1,3,2]],
@@ -35,8 +35,8 @@ PIECE_SHAPE = [
 
 
 AVAILABLE_CHOICES = [
-    [9],
-    [7,10],
+    [9,9,9,9],
+    [7,10,7,10],
     [8,9,8,9],
     [8,9,8,9],
     [8,9,8,9],
@@ -44,7 +44,7 @@ AVAILABLE_CHOICES = [
     [8,9,8,9],
 ]
 
-AVAILABLE_CHOICES_NUMBER = [9,17,34,34,34,34,34]
+AVAILABLE_CHOICES_NUMBER = [9,17,34,34,17,17,34]
 
 class State(object):
     """
@@ -146,9 +146,7 @@ class State(object):
 
     def get_next_state_with_random_choice(self):
         #get choice
-        if self.now_piece == 0: dir = 0
-        elif self.now_piece == 1: dir = random.randrange(0,2)
-        else: dir = random.randrange(0,4)  #top left down right -> 0123
+        dir = random.randrange(0,4)  #top left down right -> 0123
         col = random.randrange(0,AVAILABLE_CHOICES[self.now_piece][dir])
 
         new_board,value = self.place_piece(dir,col)
@@ -225,26 +223,29 @@ class Node(object):
         return "Node: {}, Q/N: {}/{}, state: {}".format(
             hash(self), self.quality_value, self.visit_times, self.state
         )
-
-def tree_policy(node):
+    
+def tree_policy(node,i):
     """
     蒙特卡罗树搜索的Selection和Expansion阶段，传入当前需要开始搜索的节点（例如根节点）。
     基本策略是先找当前未选择过的子节点，如果是多个则随机选。如果都被选择过就按权衡过
     """
-
+    # print("tree policy times:",i)
+    # print("now piece:",node.get_state().now_piece)
 
     # Check if the current node is the leaf node
     while node.get_state().is_terminal() == False:
 
+        # print("expand?")
         if node.is_all_expand():
-
+            # print("y")
             node = best_child(node, True)
         else:
-
+            # print("n")
             # Return the new sub node
-            sub_node = expand(node)
+            sub_node = expand(node,i)
             return sub_node
     # Return the leaf node
+    # print("leave tree policy")
     return node
 
 
@@ -253,6 +254,7 @@ def default_policy(node):
     蒙特卡罗树搜索的Simulation阶段，输入一个需要expand的节点，随机操作后创建新的节点。
     基本策略是随机选择Action。
     """
+    # print("default policy in")
 
     # Get the state of the game
     current_state = node.get_state()
@@ -261,8 +263,10 @@ def default_policy(node):
     while current_state.is_terminal() == False:
         # Pick one random action to play and get next state
         current_state = current_state.get_next_state_with_random_choice()
-        # current_state.set_next_pieces(np.append(current_state.get_next_pieces(),random.randrange(0,7)))#增加深度用
+        # current_state.show_board()
+        current_state.set_next_pieces(np.append(current_state.get_next_pieces(),random.randrange(0,7)))#增加深度用
     
+    # print("default policy out, reward:",current_state.compute_reward())
     return current_state.get_current_value()
 
 
@@ -274,34 +278,36 @@ def if_board_in_lst(board,lst):
     return False
 
 
-def expand(node):
+def expand(node,i):
     """
     输入一个节点，在该节点上拓展一个新的节点，使用random方法执行Action，返回新增的节点。注意，需要
     """
+    # print("expand in")
 
     tried_sub_node_states = [
         sub_node.get_state().get_board() for sub_node in node.get_children()
     ]
 
 
-
+    # print("lst builded")
     new_state = node.get_state().get_next_state_with_random_choice()
-
+    # new_state.show_board()
     # Check until get the new state which has the different action from others
     while if_board_in_lst(new_state.get_board(),tried_sub_node_states):
         new_state = node.get_state().get_next_state_with_random_choice()
+    # print("chosen")
 
     sub_node = Node()
     sub_node.set_state(new_state)
     node.add_child(sub_node)
-
+    # print("expand out")
     return sub_node
 
 def best_child(node, is_exploration):
     """
     使用UCB算法，权衡exploration和exploitation后选择得分最高的子节点，注意如果是预测阶段直接选择
     """
-
+    # print("compute best child")
     # TODO: Use the min float value
     best_score = -sys.maxsize
     best_sub_node = None
@@ -314,6 +320,7 @@ def best_child(node, is_exploration):
         else:
             C = 0.0
 
+        # print("value",sub_node.get_quality_value(),"visit times",sub_node.get_visit_times())
         # UCB = quality / times + C * sqrt(2 * ln(total_times) / times)
         left = sub_node.get_quality_value() / sub_node.get_visit_times()
         right = 2.0 * math.log(node.get_visit_times()) / sub_node.get_visit_times()
@@ -350,11 +357,11 @@ def monte_carlo_tree_search(node):
     4. Exploitation（利用）: 选择 `Q 值` 最大的子节点作为最优决策。
     """
 
-    computation_budget = 10
+    computation_budget = 100
     # Run as much as possible under the computation budget
     for i in range(computation_budget):
         # 1. Find the best node to expand
-        expand_node = tree_policy(node)
+        expand_node = tree_policy(node,i)
         # 2. Random run to add node and get reward
         reward = default_policy(expand_node)
         # 3. Update all passing nodes with reward
