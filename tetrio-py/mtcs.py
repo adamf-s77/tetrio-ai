@@ -373,12 +373,14 @@ def monte_carlo_tree_search(node):
 
 class Last_Node:
     def __init__(self):
-        self.init_state = State([])
         self.current_node = Node()
-        self.current_node.set_state(self.init_state)
 
     def get_move(self,next_pieces):
-        self.current_node.get_state().set_next_pieces(next_pieces)
+        if(self.current_node.get_state() == None):
+            state = State(next_pieces)
+            self.current_node.set_state(state)
+        else:
+            self.current_node.get_state().set_next_pieces(next_pieces)
         self.current_node = monte_carlo_tree_search(self.current_node)
         self.current_node.get_state().show_board()
         return self.current_node.get_move()
