@@ -1,27 +1,13 @@
+import sys,math,random,numpy as np,time
+import matplotlib.pyplot as plt
+import matplotlib
+import os
 
-import sys
-import math
-import random
-import numpy as np
-import time
+matplotlib.use('Agg')
+
+
 
 #OILJSZT -> 0123456
-#top left down right -> 0123
-#ex: 
-# x    x xxx xx
-# xxx  x   x x
-#     xx     x 
-
-#left right turnleft turnright down -> 01234
-
-# T4
-# O5
-# L4
-# S4
-# J4
-# Z4
-# I4
-
 PIECE_SHAPE = [
     [[3,3],[3,3],[3,3],[3,3]],
     [[15],[1,1,1,1],[15],[1,1,1,1]],
@@ -45,6 +31,9 @@ AVAILABLE_CHOICES = [
 ]
 
 AVAILABLE_CHOICES_NUMBER = [9,17,34,34,17,17,34]
+COMPUTATION_BUDGET = 5000
+HEIGHT_PUNISHMENT_DEGREE = 1.3
+BACKUP_PUNISHMENT_DEGREE = 0.7
 
 class State(object):
     """
@@ -53,20 +42,20 @@ class State(object):
     """
 
     def __init__(self,next_pieces):
-        self.current_value = 0
-        # For the first root node, the index is 0 and the game should start from 1
-        # self.current_round_index = 0
+        self.now_piece = None
+        self.next_pieces = []
+        self.parent_dir_and_col = []
+        self.board = np.zeros(20,dtype = int)
+        self.current_score = 0
+        self.height = 0
         self.cumulative_choices_dir = np.array([],dtype = int)
         self.cumulative_choices_col = np.array([],dtype = int)
-        self.board = np.zeros(20,dtype = int)
-        if(len(next_pieces) > 0):
+        if(len(next_pieces) != 0):
+            self.current_value = 0
+            self.board = np.zeros(20,dtype = int)
             self.now_piece = next_pieces[0] 
             self.next_pieces = np.delete(next_pieces,0) 
-        else:
-            self.now_piece = None
-            self.next_pieces = None
-
-
+            self.parent_dir_and_col = []
 
     def get_current_value(self):
         return self.current_value
@@ -74,11 +63,13 @@ class State(object):
     def set_current_value(self, value):
         self.current_value = value
 
-    # def get_current_round_index(self):
-    #     return self.current_round_index
-
-    # def set_current_round_index(self, turn):
-    #     self.current_round_index = turn
+    def get_board_matrix(self):
+        matrix = np.zeros((20, 10), dtype=np.uint8)
+        for i in range(20):
+            for j in range(10):
+                if self.board[i] & (1 << (9 - j)):
+                    matrix[i][j] = 1
+        return matrix
 
     def get_cumulative_choices_dir(self):
         return self.cumulative_choices_dir
@@ -108,8 +99,8 @@ class State(object):
         return self.next_pieces
     
     def set_next_pieces(self,next_pieces):
-        self.next_pieces = next_pieces
-        self.now_piece = self.next_pieces[0]
+        self.now_piece = next_pieces[0]
+        self.next_pieces = np.delete(next_pieces,0)
 
     def is_terminal(self):
        return self.now_piece == None
@@ -121,19 +112,25 @@ class State(object):
         piece_shape = PIECE_SHAPE[self.now_piece][dir].copy()
         height = len(piece_shape)
 
-
-        for i in range(height):
+        #放哪個位置
+        for i in range(height): 
             piece_shape[i] = piece_shape[i] << (AVAILABLE_CHOICES[self.now_piece][dir] - col - 1)
 
 
-        j = 19
-        while self.board[j] & piece_shape[0] == 0 and j >= 0: j -= 1
-        j += 1
+        #判斷下界
+        j = 19-height
+        # while self.board[j] & piece_shape[0] == 0 and j >= 0: j -= 1
+        overlap = 0
+        while overlap == 0:
+            for i in range(len(piece_shape)):
+                if self.board[j+i] & piece_shape[i] != 0 or j < 0: overlap = 1
+            j -= 1  
+        j += 2
         new_board = self.board.copy()
 
         clear_lines = 0
         for i in range(height):
-            if(i+j == 20): return new_board,-1
+            if(i+j == 19): return new_board,-1
             new_board[i+j] = new_board[i+j] | piece_shape[i]
             if(new_board[i+j] == 1023):
                 clear_lines += 1
@@ -144,24 +141,40 @@ class State(object):
 
 
 
-    def get_next_state_with_random_choice(self):
+    def get_next_state_with_random_choice(self,dir = None,col = None):
         #get choice
-        dir = random.randrange(0,4)  #top left down right -> 0123
-        col = random.randrange(0,AVAILABLE_CHOICES[self.now_piece][dir])
+        if(dir == None): dir = random.randrange(0,4)  #top left down right -> 0123
+        if(col == None): col = random.randrange(0,AVAILABLE_CHOICES[self.now_piece][dir])
 
         new_board,value = self.place_piece(dir,col)
+        
+        # if value > 0: 
+        #     print("success!")
+        #     time.sleep(3)
+
         if(value == -1):
             next_state = State(np.array([]))
+            next_state.set_current_value(self.get_current_value() + value + 1)
+            next_state.parent_dir_and_col = [dir,col]
+            next_state.current_score = self.current_score - 1
             next_state.set_cumulative_choices_dir(dir)
             next_state.set_cumulative_choices_col(col)
             return next_state
         next_state = State(self.next_pieces)
         next_state.set_board(new_board)
+        next_state.current_score = self.current_score
+        if(value > 0):
+            next_state.current_score += (value*2-1)*100 if value != 4 else (value*2)*100
+        next_state.current_score += 30
+        for i in range(19,-1,-1):
+            if(next_state.board[i] != 0):
+                next_state.height = i
+                break
+        next_state.set_current_value(self.get_current_value() + value)
+        next_state.parent_dir_and_col = [dir,col]
         next_state.set_cumulative_choices_dir(dir)
         next_state.set_cumulative_choices_col(col)
         return next_state
-
-
 
 
 class Node(object):
@@ -173,7 +186,7 @@ class Node(object):
         self.parent = None
         self.children = []
         self.visit_times = 0
-        self.quality_value = 0.0
+        self.quality_value = 0.0     
         self.state = None
 
     def set_state(self, state):
@@ -210,21 +223,28 @@ class Node(object):
         self.quality_value += n
 
     def is_all_expand(self):
-        return len(self.children) == AVAILABLE_CHOICES_NUMBER[self.state.now_piece]
+        return len(self.children) >= AVAILABLE_CHOICES_NUMBER[self.state.now_piece]
 
     def add_child(self, sub_node):
         sub_node.set_parent(self)
         self.children.append(sub_node)
 
+    def print_children_quality_value(self):
+        for i in self.children:
+            print(i.quality_value,end = ' ')
+        print()
+
+    def print_children_visited_times(self):
+        for i in self.children:
+            print(i.get_visit_times(),end = ' ')
+        print()
+
+
     def get_move(self):
         return self.state.get_cumulative_choices_dir()[-1],self.state.get_cumulative_choices_col()[-1]
 
-    def __repr__(self):
-        return "Node: {}, Q/N: {}/{}, state: {}".format(
-            hash(self), self.quality_value, self.visit_times, self.state
-        )
-    
-def tree_policy(node,i):
+
+def tree_policy(node):
     """
     蒙特卡罗树搜索的Selection和Expansion阶段，传入当前需要开始搜索的节点（例如根节点）。
     基本策略是先找当前未选择过的子节点，如果是多个则随机选。如果都被选择过就按权衡过
@@ -242,66 +262,19 @@ def tree_policy(node,i):
         else:
             # print("n")
             # Return the new sub node
-            sub_node = expand(node,i)
+            sub_node = expand(node)
             return sub_node
     # Return the leaf node
     # print("leave tree policy")
     return node
 
 
-def default_policy(node):
-    """
-    蒙特卡罗树搜索的Simulation阶段，输入一个需要expand的节点，随机操作后创建新的节点。
-    基本策略是随机选择Action。
-    """
-    # print("default policy in")
-
-    # Get the state of the game
-    current_state = node.get_state()
-
-    # Run until the game over
-    while current_state.is_terminal() == False:
-        # Pick one random action to play and get next state
-        current_state = current_state.get_next_state_with_random_choice()
-        # current_state.show_board()
-        current_state.set_next_pieces(np.append(current_state.get_next_pieces(),random.randrange(0,7)))#增加深度用
-    
-    # print("default policy out, reward:",current_state.compute_reward())
-    return current_state.get_current_value()
-
-
-def if_board_in_lst(board,lst):
+def if_board_in_lst(dir_and_col,lst):
 
     for i in lst:
-        if(board == i).all():
+        if dir_and_col[0] == i[0] and dir_and_col[1] == i[1]:
             return True
     return False
-
-
-def expand(node,i):
-    """
-    输入一个节点，在该节点上拓展一个新的节点，使用random方法执行Action，返回新增的节点。注意，需要
-    """
-    # print("expand in")
-
-    tried_sub_node_states = [
-        sub_node.get_state().get_board() for sub_node in node.get_children()
-    ]
-
-
-    # print("lst builded")
-    new_state = node.get_state().get_next_state_with_random_choice()
-    # new_state.show_board()
-    # Check until get the new state which has the different action from others
-    while if_board_in_lst(new_state.get_board(),tried_sub_node_states):
-        new_state = node.get_state().get_next_state_with_random_choice()
-    # print("chosen")
-
-    sub_node = Node()
-    sub_node.set_state(new_state)
-    node.add_child(sub_node)
-    # print("expand out")
-    return sub_node
 
 def best_child(node, is_exploration):
     """
@@ -323,7 +296,7 @@ def best_child(node, is_exploration):
         # print("value",sub_node.get_quality_value(),"visit times",sub_node.get_visit_times())
         # UCB = quality / times + C * sqrt(2 * ln(total_times) / times)
         left = sub_node.get_quality_value() / sub_node.get_visit_times()
-        right = 2.0 * math.log(node.get_visit_times()) / sub_node.get_visit_times()
+        right = 100 * math.log(node.get_visit_times()) / sub_node.get_visit_times()
         score = left + C * math.sqrt(right)
 
         if score > best_score:
@@ -331,7 +304,50 @@ def best_child(node, is_exploration):
             best_score = score
     return best_sub_node
 
-def backup(node, reward):
+
+def expand(node):
+    """
+    输入一个节点，在该节点上拓展一个新的节点，使用random方法执行Action，返回新增的节点。注意，需要
+    """
+    # print("expand in")
+
+    tried_sub_node_states = [
+        sub_node.get_state().parent_dir_and_col for sub_node in node.get_children()
+    ]
+    # print(len(node.get_children()))
+    # print(node.get_state().now_piece)
+    # print(len(tried_sub_node_states))
+
+    # print("lst builded")
+    new_state = node.get_state().get_next_state_with_random_choice()
+    # new_state.show_board()
+    # Check until get the new state which has the different action from others
+    while if_board_in_lst(new_state.parent_dir_and_col,tried_sub_node_states):
+        new_state = node.get_state().get_next_state_with_random_choice()
+    # print("chosen")
+
+    sub_node = Node()
+    if len(new_state.next_pieces) > 0: new_state.next_pieces = np.append(new_state.get_next_pieces(),random.randrange(0,7))
+    sub_node.set_state(new_state)
+    node.add_child(sub_node)
+    # print("expand out")
+    # print(sub_node.get_state().now_piece)
+    # print(sub_node.get_state().next_pieces)
+    return sub_node 
+
+def default_policy(node,i = 1):
+    """
+    蒙特卡罗树搜索的Simulation阶段，输入一个需要expand的节点，随机操作后创建新的节点。
+    基本策略是随机选择Action。
+    """
+    # node.get_state().show_board()
+    reward = node.get_state().current_score - node.get_parent().get_state().current_score
+    if(reward > 3):
+        reward *= 2
+    # print(reward)
+    return reward * 10/(node.get_state().height+1) * HEIGHT_PUNISHMENT_DEGREE
+
+def backup(node,reward):
     """
     蒙特卡洛树搜索的Backpropagation阶段，输入前面获取需要expand的节点和新的reward，向上传递更新值。
     """
@@ -339,9 +355,9 @@ def backup(node, reward):
     while node != None:
         # Update the visit times
         node.visit_times_add_one()
-
         # Update the quality value
         node.quality_value_add_n(reward)
+        reward *= BACKUP_PUNISHMENT_DEGREE
 
         # Change the node to the parent node
         node = node.parent
@@ -356,53 +372,83 @@ def monte_carlo_tree_search(node):
     3. Backpropagation（回溯）: 使用 `backup` 将 `reward` 更新到路径上的所有节点。
     4. Exploitation（利用）: 选择 `Q 值` 最大的子节点作为最优决策。
     """
-
-    computation_budget = 100
+    # print("in monte carlo")
+    
     # Run as much as possible under the computation budget
-    for i in range(computation_budget):
+    for i in range(COMPUTATION_BUDGET):
+
+        # if(i%1000 == 0):
+        #     print("simulations:",i)
         # 1. Find the best node to expand
-        expand_node = tree_policy(node,i)
+        # print("tree_policy")
+        expand_node = tree_policy(node)
         # 2. Random run to add node and get reward
-        reward = default_policy(expand_node)
+        # print("default_policy")
+        reward = default_policy(expand_node,i)
+        # print(reward)
         # 3. Update all passing nodes with reward
-        backup(expand_node, reward)
+        # time.sleep(0.5)
+        backup(expand_node,reward)
 
     # N. Get the best next node
+    node.print_children_quality_value()
+    node.print_children_visited_times()
     best_next_node = best_child(node, False)
+    # print("out monte carlo")
     return best_next_node
 
-class Last_Node:
-    def __init__(self):
-        self.current_node = Node()
+def save_state_image(state, frame_idx, out_dir='frames'):
+    os.makedirs(out_dir, exist_ok=True)
+    plt.imshow(state, cmap='gray', interpolation='nearest')
+    plt.axis('off')
+    plt.savefig(f"{out_dir}/frame_{frame_idx:04d}.png", bbox_inches='tight', pad_inches=0)
+    plt.close()
 
-    def get_move(self,next_pieces):
-        if(self.current_node.get_state() == None):
-            state = State(next_pieces)
-            self.current_node.set_state(state)
-        else:
-            self.current_node.get_state().set_next_pieces(next_pieces)
-        self.current_node = monte_carlo_tree_search(self.current_node)
-        self.current_node.get_state().show_board()
-        return self.current_node.get_move()
+def main():
+    init_state = State([random.randrange(0,7) for i in range(5)])
+    init_node = Node()
+    init_node.set_state(init_state)
+    current_node = init_node
+    tmp = 100
+    for i in range(2000):  
+        print("times: ", i)
+        current_node.children = [] #設定成ucb
+        current_node = monte_carlo_tree_search(current_node)
+        current_node.get_state().show_board()
+        print("score: ",int(current_node.get_state().current_score))
+        print("clear lines: ", current_node.get_state().get_current_value(), end='\n\n')
+        if(tmp < 400 and current_node.get_state().get_current_value() >= tmp):
+            tmp += 100
+            while(1):
+                a = input()
+                if(a == "ok"): break
+        save_state_image(current_node.get_state().get_board_matrix(), i)
 
-# def main():
-#     # Create the initialized state and initialized node
-#     init_state = State([1,2,3,4,5])  # 創建初始遊戲狀態
-#     init_node = Node()  # 創建初始節點
-#     init_node.set_state(init_state)  # 將初始狀態賦予節點
-#     current_node = init_node  # 設定當前節點
 
-#     # Set the rounds to play
-#     i = 0
-#     for i in range(1):  
-#         print("Play round: {}".format(i + 1))
-#         # 執行 MCTS 來選擇下一個最佳節點
-#         current_node = monte_carlo_tree_search(current_node)
-#         current_node.get_state().show_board()
-#         print(current_node.get_state().get_current_value())
-#         current_node.get_state().set_next_pieces(np.append(current_node.get_state().get_next_pieces(),random.randrange(0,7)))
-#         time.sleep(0.5)
-#         i += 1
-# main()
+# class Last_Node:
+#     def __init__(self):
+#         self.current_node = Node()
 
-# print("==================")
+#     def get_move(self,next_pieces,dir = None,col = None):
+#         if(self.current_node.get_state() == None):
+#             state = State(next_pieces)
+#             self.current_node.set_state(state)
+#         else:
+#             self.current_node.get_state().set_next_pieces(next_pieces)
+#         self.current_node = monte_carlo_tree_search(self.current_node)
+#         self.current_node.get_state().show_board()
+#         return self.current_node.get_move()
+
+main()
+
+
+#next_pieces 延伸方塊要修改
+
+# node = Last_Node()
+
+# a,b = node.get_move([1,2,3,4,5])
+# print(a,b)
+# c,d = node.get_move([2,3,4,5,6])
+# print(c,d)
+
+
